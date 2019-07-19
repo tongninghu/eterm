@@ -63,6 +63,9 @@ void UI::getCommand() {
             else if (command == "NM") {
                 nmTrigger(arg);
             }
+            else if (command == "TK") {
+                tkTrigger(arg);
+            }
             else {
                 cout << "There is no command: " << command << ", please enter again"
                 << endl << endl;
@@ -203,6 +206,64 @@ bool UI::sdTrigger(string arg) {
 
 bool UI::nmTrigger(string arg) {
     reply = e->NM(arg, mac_a);
+    print(reply);
+    return true;
+}
+
+bool UI::tkTrigger(string arg) {
+    vector<string> temp;
+    auto start = 0;
+    auto end = arg.find("/");
+    while (end != string::npos) {
+        temp.push_back(arg.substr(start, end - start));
+        start = end + 1;
+        end = arg.find("/", start);
+    }
+    temp.push_back(arg.substr(start));
+
+    time_t now = time(0);
+    tm *ltm = localtime(&now);
+    string year = to_string(1900 + ltm->tm_year);
+    string hour = temp[1].substr(0, 2);
+    string min = temp[1].substr(2, 2);
+    string day = temp[2].substr(0, 2);
+    string mon = to_string(months[temp[2].substr(2, 3)]);
+    if (mon.size() == 1) {
+        string s = "0" + mon;
+        mon = s;
+    }
+    string endTime = year;
+    endTime += "/";
+    endTime += mon;
+    endTime += "/";
+    endTime += day;
+    endTime += " ";
+    endTime += hour;
+    endTime += ":";
+    endTime += min;
+    endTime += ":";
+    endTime += "00";
+
+    time_t tEnd;
+    int yy, month, dd, hh, mm, ss;
+    struct tm whenEnd;
+    const char *zEnd = endTime.c_str();
+
+    sscanf(zEnd, "%d/%d/%d %d:%d:%d", &yy, &month, &dd, &hh, &mm, &ss);
+    whenEnd.tm_year = yy - 1900;
+    whenEnd.tm_mon = month - 1;
+    whenEnd.tm_mday = dd;
+    whenEnd.tm_hour = hh;
+    whenEnd.tm_min = mm;
+    whenEnd.tm_sec = ss;
+    whenEnd.tm_isdst = -1;
+
+    tEnd = mktime(&whenEnd);
+    reply = e->TK(arg, tEnd, mac_a);
+    if (reply[0] == "no record") {
+        cout << "please select a flight first" << endl;
+        return false;
+    }
     print(reply);
     return true;
 }

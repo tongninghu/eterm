@@ -1,14 +1,14 @@
 #include <iostream>
 #include <iomanip>
+#include <chrono>
+#include <thread>
 
 #include "mysql_connection.h"
-
 #include <cppconn/driver.h>
 #include <cppconn/exception.h>
 #include <cppconn/resultset.h>
 #include <cppconn/statement.h>
 #include <cppconn/prepared_statement.h>
-
 
 #include "eterm.h"
 
@@ -170,6 +170,7 @@ vector<string> eterm::SD(flights a, string mac_a,  time_t ts) {
     }
     if (clients.find(mac_a) == clients.end()) {
         PNR p;
+        p.insert_mac(mac_a);
         p.insert_flight(a);
         p.insert_ts(ts);
         clients.insert({mac_a, p});
@@ -186,10 +187,36 @@ vector<string> eterm::NM(string name, string mac_a) {
     if (clients.find(mac_a) == clients.end()) {
         PNR p;
         p.insert_name(name);
+        p.insert_mac(mac_a);
         clients.insert({mac_a, p});
     }
     else {
         clients[mac_a].insert_name(name);
     }
     return clients[mac_a].reply();
+}
+
+vector<string> eterm::TK(string ticketing, time_t endtime, string mac_a) {
+    if (clients.find(mac_a) == clients.end()) {
+        vector<string> r;
+        r.push_back("no record");
+        return r;
+    }
+    clients[mac_a].insert_ticketing(ticketing);
+    clients[mac_a].insert_endtime(endtime);
+    ticketingList.push(clients[mac_a]);
+    return clients[mac_a].reply();
+}
+
+void eterm::PNR_maintain() {
+  while (1) {
+      time_t now = time(0);
+      while (!ticketingList.empty() && ticketingList.top().getEndtime() < now) {
+          string mac_a = ticketingList.top().getMacAddress();
+          clients.erase(mac_a);
+          ticketingList.pop();
+          now = time(0);
+      }
+      this_thread::sleep_for(std::chrono::minutes(1));
+  }
 }

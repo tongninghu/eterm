@@ -28,10 +28,10 @@ class UI {
         void print(vector<flights>& input);
 
         void getCommand();
-        bool avTrigger(string arg);
-        bool sdTrigger(string arg);
-        bool nmTrigger(string arg);
-        bool tkTrigger(string arg);
+        bool avTrigger(string arg); // AV PEKSHA/25JUL
+        bool sdTrigger(string arg); // SD 1/F/1
+        bool nmTrigger(string arg); // NM HU/TONGNING
+        bool tkTrigger(string arg); // TK TL/1200/20JUL/P1
 };
 
 #endif
