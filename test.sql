@@ -16,19 +16,28 @@ CREATE TABLE Flights (
     arrival_min tinyint,
     stops tinyint,
     F tinyint,
+    FL tinyint,
     C tinyint,
+    CL tinyint,
     Y tinyint,
+    YL tinyint,
     B tinyint,
+    BL tinyint,
     K tinyint,
-    M tinyint
+    KL tinyint,
+    M tinyint,
+    ML tinyint
 );
 
 INSERT INTO Flights (flight, dep, des, distance, model, departure_year, departure_month, departure_date,
     departure_hour, departure_min, arrival_year, arrival_month, arrival_date, arrival_hour,
-    arrival_min,stops, F, C, Y, B, K, M)
-VALUES ('CA155', 'PEK', 'SHA', 1213, '767', 2019, 7, 25, 7, 45, 2019, 7, 25, 9, 50, 0, 10, 10, 20, 20, 20 ,20);
+    arrival_min,stops, F, FL, C, CL, Y, YL, B, BL, K, KL, M, ML)
+VALUES ('CA155', 'PEK', 'SHA', 1213, '767', 2019, 7, 25, 7, 45, 2019, 7, 25, 9, 50, 0, 10, 0, 10, 0, 20, 0, 20, 0, 20 ,0, 20, 0);
 
 INSERT INTO Flights (flight, dep, des, distance, model, departure_year, departure_month, departure_date,
     departure_hour, departure_min, arrival_year, arrival_month, arrival_date, arrival_hour,
-    arrival_min,stops, F, C, Y, B, K, M)
-VALUES ('CA0721', 'PEK', 'SHA', 1213, '767', 2019, 7, 25, 10, 0, 2019, 7, 25, 12, 5, 0, 10, 10, 20, 20, 20 ,20);
+    arrival_min,stops, F, FL, C, CL, Y, YL, B, BL, K, KL, M, ML)
+VALUES ('CA0721', 'PEK', 'SHA', 1213, '767', 2019, 7, 25, 10, 0, 2019, 7, 25, 12, 5, 0, 10, 0, 10, 0, 20, 0, 20, 0, 20, 0, 20, 0);
+
+
+UPDATE Flights SET F = 10, FL = 0 WHERE flight = "CA155";

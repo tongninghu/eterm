@@ -7,19 +7,36 @@
 
 using namespace std;
 
-UI::UI(eterm &e):e(&e) {};
+UI::UI(eterm &e):e(&e) {
+    gen_random(mac_a, 32);  // plan to use mac address, but fail to find it on mac os
+};
 
-void UI::print(vector<string>& input) {
-    for (int i = 1; i < input.size(); i++) {
-        cout << i << ". " << input[i] << endl;
+void UI::gen_random(string &s, const int len) {
+    static const char alphanum[] =
+        "0123456789"
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        "abcdefghijklmnopqrstuvwxyz";
+
+    for (int i = 0; i < len; ++i) {
+        s.push_back(alphanum[rand() % (sizeof(alphanum) - 1)]);
     }
 }
 
+void UI::print(vector<string>& input) {
+    cout << endl;
+    for (int i = 0; i < input.size(); i++) {
+        cout << i + 1 << ". " << input[i] << endl;
+    }
+    cout << endl;
+}
+
 void UI::print(vector<flights>& input) {
+    cout << endl;
     for (int i = 0; i < input.size(); i++) {
         cout << i + 1 << ". ";
         input[i].print();
     }
+    cout << endl;
 }
 
 void UI::getCommand() {
@@ -31,22 +48,29 @@ void UI::getCommand() {
         if (end < input.size() - 1) {
             command = input.substr(0, end);
             arg = input.substr(end + 1);
-            cout << "command = " << command << endl;
-            cout << "arg = " << arg << endl;
             if (command == "AV") {
                 if (!avTrigger(arg)) {
                     cout << "the input doesn't fit into command AV, please enter again"
-                    << endl;
+                    << endl << endl;
                 }
             }
+            else if (command == "SD") {
+                if (!sdTrigger(arg)) {
+                    cout << "the input doesn't fit into command SD, please enter again"
+                    << endl << endl;
+                }
+            }
+            else if (command == "NM") {
+                nmTrigger(arg);
+            }
             else {
-                cout << "no such command"
-                << endl;
+                cout << "There is no command: " << command << ", please enter again"
+                << endl << endl;
             }
         }
         else {
             cout << "the input doesn't fit into any commands, please enter again"
-            << endl;
+            << endl << endl;
         }
     }
 }
@@ -126,13 +150,59 @@ bool UI::avTrigger(string arg) {
         s.day = ltm2->tm_mday;
     }
 
-    reply = e->AV(s);
-    if (reply.size() > 0) {
-        print(reply);
+    search = e->AV(s);
+    if (search.size() > 0) {
+        print(search);
     }
     else {
         cout << "No match records!" << endl;
     }
+    return true;
+}
 
+
+bool UI::sdTrigger(string arg) {
+    vector<string> temp;
+    auto start = 0;
+    auto end = arg.find("/");
+    while (end != string::npos) {
+        temp.push_back(arg.substr(start, end - start));
+        start = end + 1;
+        end = arg.find("/", start);
+    }
+    temp.push_back(arg.substr(start));
+
+    string n;
+    if (temp[1] == "F") {n = search[stoi(temp[0])].F;}
+    else if (temp[1] == "C") {n = search[stoi(temp[0])].C;}
+    else if (temp[1] == "Y") {n = search[stoi(temp[0])].Y;}
+    else if (temp[1] == "B") {n = search[stoi(temp[0])].B;}
+    else if (temp[1] == "K") {n = search[stoi(temp[0])].K;}
+    else {n = search[stoi(temp[0])].M;}
+
+    if (stoi(temp[0]) <= search.size() && stoi(temp[2]) <= stoi(n)) {
+        search[stoi(temp[0]) - 1].appointed_cabin = temp[1];
+        search[stoi(temp[0]) - 1].appointed_num = stoi(temp[2]);
+        time_t timeStamp = time(0);
+        reply = e->SD(search[stoi(temp[0]) - 1], mac_a, timeStamp);
+        if (reply[0] == "fail") {
+            cout << "server busy, please try later" << endl;
+            return false;
+        }
+        else if (reply[0] == "sold out") {
+            cout << "already sold out, please find another flight" << endl;
+            return false;
+        }
+        print(reply);
+        return true;
+    }
+    else {
+        return false;
+    }
+}
+
+bool UI::nmTrigger(string arg) {
+    reply = e->NM(arg, mac_a);
+    print(reply);
     return true;
 }

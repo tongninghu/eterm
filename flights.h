@@ -25,9 +25,21 @@ public:
     int d_day = -1;
     int d_month = -1;
     string airline;
+    string F = "not available"; // indicate the condition of available tickets in this cabin
+    string C = "not available";
+    string Y = "not available";
+    string B = "not available";
+    string K = "not available";
+    string M = "not available";
 
+    string appointed_cabin;
+    int appointed_num;
+
+    flights();
     flights& operator=(const flights& a);
+    string reply();
     void print();
+    friend bool operator==(const flights& l, const flights& r);
 };
 
 #endif
