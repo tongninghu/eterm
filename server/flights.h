@@ -37,8 +37,8 @@ public:
 
     flights();
     flights& operator=(const flights& a);
+    string toString() const;
     string reply();
-    void print();
     friend bool operator==(const flights& l, const flights& r);
 };
 

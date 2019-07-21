@@ -32,10 +32,32 @@ bool operator==(const flights& l, const flights& r) {
     return true;
 }
 
-void flights::print() {
-    cout << flight << " " << dep << " " << des << " " << d_day << " " << d_month\
-    << " " << airline << " F" << F << " C" << C << " Y" << Y << " B" << B <<\
-    " K" << K << " M" << M << endl;
+string flights::toString() const{
+    string reply;
+    reply += flight;
+    reply += " ";
+    reply += dep;
+    reply += " ";
+    reply += des;
+    reply += " ";
+    reply += to_string(d_day);
+    reply += " ";
+    reply += to_string(d_month);
+    reply += " ";
+    reply += airline;
+    reply += " F";
+    reply += F;
+    reply += " C";
+    reply += C;
+    reply += " Y";
+    reply += Y;
+    reply += " B";
+    reply += B;
+    reply += " K";
+    reply += K;
+    reply += " M";
+    reply += M;
+    return reply;
 }
 
 string flights::reply() {
@@ -53,6 +75,5 @@ string flights::reply() {
     reply += appointed_cabin;
     reply += " ";
     reply += to_string(appointed_num);
-
     return reply;
 }
