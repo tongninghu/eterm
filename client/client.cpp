@@ -45,8 +45,7 @@ int main() {
 				printf("socket creation failed...\n");
 				exit(0);
 		}
-		else
-				printf("Socket successfully created..\n");
+		else printf("Socket successfully created..\n");
 		bzero(&servaddr, sizeof(servaddr));
 
 		// assign IP, PORT
@@ -59,8 +58,7 @@ int main() {
 				printf("connection with the server failed...\n");
 				exit(0);
 		}
-		else
-				printf("connected to the server..\n");
+		else printf("connected to the server..\n");
 
 		// function for chat
 		func(sockfd);

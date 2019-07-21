@@ -12,6 +12,9 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <errno.h>
+#include <arpa/inet.h>    //close
+#include <sys/time.h> //FD_SET, FD_ISSET, FD_ZERO macros
 
 #include "mysql_connection.h"
 #include <cppconn/driver.h>
@@ -26,87 +29,138 @@ using namespace std;
 
 eterm::eterm() {}
 
-void eterm::socketCreation() {
-    int sockfd, connfd;
-    socklen_t len;
-    struct sockaddr_in servaddr, cli;
+void eterm::clientHandler() {
+    unordered_map<int, string> FDtoID;
+    int opt = TRUE;
+    int master_socket, addrlen, new_socket, client_socket[10],
+         max_clients = 10, activity, i, valread, sd;
+    int max_sd;
+    struct sockaddr_in address;
+    char buff[MAX];  //data buffer of 1K
+    fd_set readfds; //set of socket descriptors
 
-    // socket create and verification
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (sockfd == -1) {
-        printf("socket creation failed...\n");
-        exit(0);
+    //initialise all client_socket[] to 0 so not checked
+    for (i = 0; i < max_clients; i++) {
+       client_socket[i] = 0;
     }
-    else
-        printf("Socket successfully created..\n");
 
-    bzero(&servaddr, sizeof(servaddr));
-    // assign IP, PORT
-    servaddr.sin_family = AF_INET;
-    servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
-    servaddr.sin_port = htons(PORT);
-
-    // Binding newly created socket to given IP and verification
-    if ((::bind(sockfd, (SA*)&servaddr, sizeof(servaddr))) != 0) {
-        printf("socket bind failed...\n");
-        exit(0);
+    //create a master socket
+    if((master_socket = socket(AF_INET , SOCK_STREAM , 0)) == 0) {
+       perror("socket failed");
+       exit(EXIT_FAILURE);
     }
-    else
-        printf("Socket successfully binded..\n");
+    else printf("Socket successfully created..\n");
 
-    // Now server is ready to listen and verification
-    if ((listen(sockfd, 5)) != 0) {
-        printf("Listen failed...\n");
-        exit(0);
+    //set master socket to allow multiple connections,
+    //this is just a good habit, it will work without this
+    if(setsockopt(master_socket, SOL_SOCKET, SO_REUSEADDR, (char *)&opt, sizeof(opt)) < 0) {
+       perror("setsockopt");
+       exit(EXIT_FAILURE);
     }
-    else
-        printf("Server listening..\n");
 
-    len = sizeof(cli);
+    //type of socket created
+    address.sin_family = AF_INET;
+    address.sin_addr.s_addr = htonl(INADDR_ANY);
+    address.sin_port = htons(PORT);
 
-    // Accept the data packet from client and verification
-    connfd = accept(sockfd, (SA*)&cli, &len);
-    if (connfd < 0) {
-        printf("server acccept failed...\n");
-        exit(0);
+    //bind the socket to localhost port 8080
+    if (::bind(master_socket, (struct sockaddr *)&address, sizeof(address))<0) {
+       perror("bind failed");
+       exit(EXIT_FAILURE);
     }
-    else
-        printf("server acccept the client...\n");
+    else printf("Socket successfully binded..\n");
 
-    string id = to_string(cli.sin_addr.s_addr);
-    id += to_string(cli.sin_port);
-    // Function for chatting between client and server
-		clientHandler(id, connfd);
-		// After chatting close the socket
-		close(sockfd);
+    //try to specify maximum of 3 pending connections for the master socket
+    if (listen(master_socket, 3) < 0) {
+       perror("listen");
+       exit(EXIT_FAILURE);
+    }
+    else printf("Server listening..\n");
+    //accept the incoming connection
+    addrlen = sizeof(address);
+
+    while(TRUE) {
+       //clear the socket set
+       FD_ZERO(&readfds);
+
+       //add master socket to set
+       FD_SET(master_socket, &readfds);
+       max_sd = master_socket;
+
+       //add child sockets to set
+       for (i = 0 ; i < max_clients ; i++) {
+           sd = client_socket[i]; //socket descriptor
+           //if valid socket descriptor then add to read list
+           if(sd > 0) FD_SET(sd , &readfds);
+
+           //highest file descriptor number, need it for the select function
+           if(sd > max_sd) max_sd = sd;
+       }
+
+       //wait for an activity on one of the sockets , timeout is NULL ,
+       //so wait indefinitely
+       activity = select(max_sd + 1 , &readfds , NULL , NULL , NULL);
+
+       if ((activity < 0) && (errno!=EINTR)) {
+           printf("select error\n");
+       }
+
+       //If something happened on the master socket ,
+       //then its an incoming connection
+       if (FD_ISSET(master_socket, &readfds)) {
+           if ((new_socket = accept(master_socket, (SA*)&address, \
+              (socklen_t*)&addrlen))<0) {
+
+               perror("accept");
+               exit(EXIT_FAILURE);
+           }
+
+           //inform user of socket number - used in send and receive commands
+           printf("New connection , socket fd is %d , ip is : %s , port : %d\n",\
+              new_socket , inet_ntoa(address.sin_addr) , ntohs(address.sin_port));
+
+           string id = to_string(address.sin_addr.s_addr);
+           id += to_string(address.sin_port);
+           FDtoID.insert({new_socket, id});
+
+           //add new socket to array of sockets
+           for (i = 0; i < max_clients; i++) {
+               //if position is empty
+               if( client_socket[i] == 0 ) {
+                   client_socket[i] = new_socket;
+                   printf("Adding to list of sockets as %d\n" , i);
+                   break;
+               }
+           }
+       }
+
+       //else its some IO operation on some other socket
+       for (i = 0; i < max_clients; i++) {
+           sd = client_socket[i];
+           if (FD_ISSET(sd , &readfds)) {
+               bzero(buff, MAX);
+               // read the message from client and copy it in buffer
+               read(sd, buff, sizeof(buff));
+               // print buffer which contains the client contents
+               string request(buff);
+               bzero(buff, MAX);
+               cout << "From client " << i << ": " << request << endl;
+
+               string reply = requestHanlder(FDtoID[sd], request);
+               strcpy(buff, reply.c_str());
+               // and send that buffer to client
+               write(sd, buff, sizeof(buff));
+
+               // if msg contains "Exit" then server exit and chat ended.
+               if (strncmp("exit", buff, 4) == 0) {
+                   printf("Server Exit...\n");
+                   break;
+               }
+           }
+       }
+    }
 }
 
-
-void eterm::clientHandler(const string &id, int sockfd) {
-    char buff[MAX];
-    int n;
-    // infinite loop for chat
-    for (;;) {
-        bzero(buff, MAX);
-        // read the message from client and copy it in buffer
-        read(sockfd, buff, sizeof(buff));
-        // print buffer which contains the client contents
-        string request (buff);
-        bzero(buff, MAX);
-        cout << "From client: " << request << endl;
-
-        string reply = requestHanlder(id, request);
-        strcpy(buff, reply.c_str());
-        // and send that buffer to client
-        write(sockfd, buff, sizeof(buff));
-
-        // if msg contains "Exit" then server exit and chat ended.
-        if (strncmp("exit", buff, 4) == 0) {
-            printf("Server Exit...\n");
-            break;
-        }
-    }
-}
 
 string eterm::requestHanlder(const string &id, string request) {
     int end = request.find(' ');

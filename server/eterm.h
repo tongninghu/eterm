@@ -13,6 +13,8 @@
 #define MAX 1024
 #define PORT 8080
 #define SA struct sockaddr
+#define TRUE   1
+#define FALSE  0
 
 using namespace std;
 
@@ -34,16 +36,15 @@ class eterm {
     private:
         unordered_set<string> cities {"PEK", "SHA", "CTU", "SZX"};
         unordered_map<string, int> months {{"JAN",1}, {"FEB", 2}, {"MAR", 3},
-            {"APR", 4}, {"MAY", 5}, {"JUN", 6}, {"JUL", 7}, {"AUG", 8}, {"SEP", 9},
-            {"OCT", 10}, {"NOV", 11}, {"DEC", 12}};
+            {"APR", 4}, {"MAY", 5}, {"JUN", 6}, {"JUL", 7}, {"AUG", 8},
+            {"SEP", 9}, {"OCT", 10}, {"NOV", 11}, {"DEC", 12}};
         unordered_set<string> airlines {"CA", "MU", "CZ"};
         priority_queue<PNR, vector<PNR>, compare> ticketingList;
         unordered_map<string, PNR> clients;
         unordered_set<flights, MyHashFunction> current_threads;
     public:
         eterm();
-        void socketCreation();
-        void clientHandler(const string& id, int sockfd);
+        void clientHandler();
         string requestHanlder(const string &id, string request);
 
         bool avTrigger(const string &id, string data, string &reply); // AV PEKSHA/25JUL

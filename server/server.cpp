@@ -15,5 +15,5 @@ using namespace std;
 // Driver function
 int main() {
 		eterm e;
-		e.socketCreation();
+		e.clientHandler();
 }
