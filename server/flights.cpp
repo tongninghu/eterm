@@ -12,6 +12,7 @@ flights& flights::operator=(const flights& a) {
     flight = a.flight;
     dep = a.dep;
     des = a.des;
+    distance = a.distance;
     d_day = a.d_day;
     d_month = a.d_month;
     airline = a.airline;
@@ -34,46 +35,15 @@ bool operator==(const flights& l, const flights& r) {
 
 string flights::toString() const{
     string reply;
-    reply += flight;
-    reply += " ";
-    reply += dep;
-    reply += " ";
-    reply += des;
-    reply += " ";
-    reply += to_string(d_day);
-    reply += " ";
-    reply += to_string(d_month);
-    reply += " ";
-    reply += airline;
-    reply += " F";
-    reply += F;
-    reply += " C";
-    reply += C;
-    reply += " Y";
-    reply += Y;
-    reply += " B";
-    reply += B;
-    reply += " K";
-    reply += K;
-    reply += " M";
-    reply += M;
+    reply += flight + " " + dep + " " + des + " " + to_string(d_day) + " "\
+          + to_string(d_month) + " " + airline + " F" + F + " C" + C + " Y" + Y\
+          +" B" + B + " K" + K + " M" + M;
     return reply;
 }
 
 string flights::reply() {
     string reply;
-    reply += flight;
-    reply += " ";
-    reply += dep;
-    reply += " ";
-    reply += des;
-    reply += " ";
-    reply += to_string(d_day);
-    reply += " ";
-    reply += to_string(d_month);
-    reply += " ";
-    reply += appointed_cabin;
-    reply += " ";
-    reply += to_string(appointed_num);
+    reply += flight + " " + dep + " " + des + " " + to_string(d_day) + " "\
+          + to_string(d_month) + " " + appointed_cabin + " " + to_string(appointed_num);
     return reply;
 }

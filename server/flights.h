@@ -22,6 +22,7 @@ public:
     string flight;
     string dep;
     string des;
+    int distance;
     int d_day = -1;
     int d_month = -1;
     string airline;

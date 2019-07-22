@@ -172,21 +172,39 @@ string eterm::requestHanlder(const string &id, string request) {
         command = request.substr(0, end);
         data = request.substr(end + 1);
         data.pop_back(); // erase the last charactor '\n'
+        vector<string> temp;
+        auto start = 0;
+        auto end = data.find("/");
+        while (end != string::npos) {
+            temp.push_back(data.substr(start, end - start));
+            start = end + 1;
+            end = data.find("/", start);
+        }
+        temp.push_back(data.substr(start));
+
         if (command == "AV") {
-            if(!avTrigger(id, data, reply))
+            if(!avTrigger(id, temp, reply))
                 reply = "The request doesn't fit into command AV, please enter again";
         }
         else if (command == "SD") {
-            if(!sdTrigger(id, data, reply))
+            if(!sdTrigger(id, temp, reply))
                 reply = "The request doesn't fit into command SD, please enter again";
         }
         else if (command == "NM") {
-            if(!nmTrigger(id, data, reply))
+            if(!nmTrigger(id, temp, data, reply))
                 reply = "The request doesn't fit into command NM, please enter again";
         }
         else if (command == "TK") {
-            if(!tkTrigger(id, data, reply))
+            if(!tkTrigger(id, temp, data, reply))
                 reply = "The request doesn't fit into command TK, please enter again";
+        }
+        else if (command == "PAT") {
+            if(!patTrigger(id, temp, reply))
+                reply = "The request doesn't fit into command PAT, please enter again";
+        }
+        else if (command == "SFC") {
+            if(!sfcTrigger(id, temp, reply))
+                reply = "The request doesn't fit into command SFC, please enter again";
         }
         else {
             reply = "There is no command: ";
@@ -201,18 +219,8 @@ string eterm::requestHanlder(const string &id, string request) {
 }
 
 
-bool eterm::avTrigger(const string &id, string data, string &reply) {
-    vector<string> temp;
+bool eterm::avTrigger(const string &id, vector<string> & temp, string &reply) {
     search_criteria s;
-
-    auto start = 0;
-    auto end = data.find("/");
-    while (end != string::npos) {
-        temp.push_back(data.substr(start, end - start));
-        start = end + 1;
-        end = data.find("/", start);
-    }
-    temp.push_back(data.substr(start));
 
     if (temp.size() == 0 || temp[0].size() != 6 || temp.size() == 1 ||
         (temp[1].size() < 4 && temp[1] != "+") || temp[1].size() > 5) {
@@ -318,6 +326,8 @@ string eterm::AV(const string &id, struct search_criteria &s) {
             f.flight = res->getString("flight");
             f.dep = res->getString("dep");
             f.des = res->getString("des");
+            f.airline = res->getString("airline");
+            f.distance = stoi(res->getString("distance"));
             f.d_day = res->getInt("departure_date");
             f.d_month = res->getInt("departure_month");
             f.F = to_string(res->getInt("F"));
@@ -343,30 +353,17 @@ string eterm::AV(const string &id, struct search_criteria &s) {
     }
 
     for (int i = 0; i < clients[id].getSearch().size(); i++) {
-        reply += to_string(i + 1);
-        reply += ". ";
-        reply += clients[id].getSearch()[i].toString();
-        reply += "\n";
+        reply += to_string(i + 1) + ". " + clients[id].getSearch()[i].toString() + "\n";
     }
     reply.pop_back();
     return reply;
 }
 
-bool eterm::sdTrigger(const string &id, string data, string &reply) {
+bool eterm::sdTrigger(const string &id, vector<string> & temp, string &reply) {
     if (clients.find(id) == clients.end() || clients[id].getSearch().size() == 0) {
         reply = "Please search first and then select";
         return true;
     }
-
-    vector<string> temp;
-    auto start = 0;
-    auto end = data.find("/");
-    while (end != string::npos) {
-        temp.push_back(data.substr(start, end - start));
-        start = end + 1;
-        end = data.find("/", start);
-    }
-    temp.push_back(data.substr(start));
 
     string n;
     flights a = clients[id].getSearch()[stoi(temp[0]) - 1];
@@ -382,6 +379,14 @@ bool eterm::sdTrigger(const string &id, string data, string &reply) {
         a.appointed_cabin = temp[1];
         a.appointed_num = stoi(temp[2]);
         time_t timeStamp = time(0);
+
+        clients[id].getSearchPrice().clear();
+        for (int i = 0; i < currency.size(); i++) {
+            clients[id].insert_searchPrice(
+                priceCalculator(a.distance, a.appointed_cabin, currency[i])
+            );
+        }
+
 
         reply = SD(id, a, timeStamp);
         return true;
@@ -497,7 +502,7 @@ string eterm::SD(const string &id, flights& a, time_t ts) {
     return clients[id].reply();
 }
 
-bool eterm::nmTrigger(const string &id, string data, string &reply) {
+bool eterm::nmTrigger(const string &id, vector<string> & temp, string& data, string &reply) {
     reply = NM(id, data);
     return true;
 }
@@ -519,17 +524,7 @@ string eterm::NM(const string &id, string &name) {
     return clients[id].reply();
 }
 
-bool eterm::tkTrigger(const string &id, string data, string &reply) {
-    vector<string> temp;
-    auto start = 0;
-    auto end = data.find("/");
-    while (end != string::npos) {
-        temp.push_back(data.substr(start, end - start));
-        start = end + 1;
-        end = data.find("/", start);
-    }
-    temp.push_back(data.substr(start));
-
+bool eterm::tkTrigger(const string &id, vector<string> & temp, string& data, string &reply) {
     time_t now = time(0);
     tm *ltm = localtime(&now);
     string year = to_string(1900 + ltm->tm_year);
@@ -541,17 +536,7 @@ bool eterm::tkTrigger(const string &id, string data, string &reply) {
         string s = "0" + mon;
         mon = s;
     }
-    string endTime = year;
-    endTime += "/";
-    endTime += mon;
-    endTime += "/";
-    endTime += day;
-    endTime += " ";
-    endTime += hour;
-    endTime += ":";
-    endTime += min;
-    endTime += ":";
-    endTime += "00";
+    string endTime = year + "/" + mon + "/" + day + " " + hour + ":" + min + ":" + "00";
 
     time_t tEnd;
     int yy, month, dd, hh, mm, ss;
@@ -582,6 +567,71 @@ string eterm::TK(const string &id, string &ticketing, time_t endtime) {
     ticketingList.push(clients[id]);
     return clients[id].reply();
 }
+
+bool eterm::patTrigger(const string &id, vector<string> & temp, string &reply) {
+    if (clients.find(id) == clients.end() || clients[id].getFlight().flight == "") {
+        reply = "Please search first and then check the price";
+        return true;
+    }
+    reply = PAT(id);
+}
+
+string eterm::PAT(const string &id) {
+    int tcny_cn = 50;
+    int tcny_yq = 150;
+    string reply;
+    for (int i = 0; i < clients[id].getSearchPrice().size(); i++) {
+        if (i != 0) reply += "\n";
+        reply += to_string(i + 1) + ". " + clients[id].getFlight().appointed_cabin\
+            + " FARE:" + clients[id].getSearchPrice()[i][0]\
+            + clients[id].getSearchPrice()[i][1] + " TAX:"\
+            + clients[id].getSearchPrice()[i][2] + " YQ:"\
+            + clients[id].getSearchPrice()[i][3] + " TOTAL:"\
+            + clients[id].getSearchPrice()[i][4];
+    }
+    return reply;
+}
+
+bool eterm::sfcTrigger(const string &id, vector<string> & temp, string &reply) {
+    if (clients.find(id) == clients.end() || clients[id].getSearchPrice().size() == 0) {
+        reply = "Please search a flight first and then choose the price";
+        return true;
+    }
+    if (temp.size() != 1 || temp[0].size() != 1 || !isdigit(temp[0][0])) {
+        return false;
+    }
+    reply = SFC(id, stoi(temp[0]));
+}
+
+
+string eterm::SFC(const string &id, int num) {
+    clients[id].insert_price(num);
+    return clients[id].reply();
+}
+
+
+vector<string> eterm::priceCalculator(int distance, string cabin, string currency) {
+    vector<string> price;
+    int fcny = log(150) / log(distance * 0.6) * distance * 1.1 * discount[cabin];
+    int tcny_cn = 50;
+    int tcny_yq = 150;
+    price.push_back(currency);
+
+    if (currency == "CNY") {
+        price.push_back(to_string(fcny));
+        price.push_back(to_string(tcny_cn));
+        price.push_back(to_string(tcny_yq));
+        price.push_back(to_string(fcny + tcny_cn + tcny_yq));
+    }
+    else if (currency == "USD") {
+        price.push_back(to_string(fcny / 7));
+        price.push_back(to_string(tcny_cn / 7));
+        price.push_back(to_string(tcny_yq / 7));
+        price.push_back(to_string(fcny / 7 + tcny_cn / 7 + tcny_yq / 7));
+    }
+    return price;
+}
+
 
 void eterm::PNR_maintain() {
   while (1) {

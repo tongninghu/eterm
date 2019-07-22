@@ -2,6 +2,7 @@ CREATE TABLE Flights (
     flight varchar(20),
     dep varchar(3),
     des varchar(3),
+    airline varchar(3),
     distance int,
     model varchar(5),
     departure_year smallint,
@@ -29,15 +30,15 @@ CREATE TABLE Flights (
     ML tinyint
 );
 
-INSERT INTO Flights (flight, dep, des, distance, model, departure_year, departure_month, departure_date,
+INSERT INTO Flights (flight, dep, des, airline, distance, model, departure_year, departure_month, departure_date,
     departure_hour, departure_min, arrival_year, arrival_month, arrival_date, arrival_hour,
     arrival_min,stops, F, FL, C, CL, Y, YL, B, BL, K, KL, M, ML)
-VALUES ('CA155', 'PEK', 'SHA', 1213, '767', 2019, 7, 25, 7, 45, 2019, 7, 25, 9, 50, 0, 10, 0, 10, 0, 20, 0, 20, 0, 20 ,0, 20, 0);
+VALUES ('CA155', 'PEK', 'SHA', 'CA', 1213, '767', 2019, 7, 25, 7, 45, 2019, 7, 25, 9, 50, 0, 10, 0, 10, 0, 20, 0, 20, 0, 20 ,0, 20, 0);
 
-INSERT INTO Flights (flight, dep, des, distance, model, departure_year, departure_month, departure_date,
+INSERT INTO Flights (flight, dep, des, airline, distance, model, departure_year, departure_month, departure_date,
     departure_hour, departure_min, arrival_year, arrival_month, arrival_date, arrival_hour,
     arrival_min,stops, F, FL, C, CL, Y, YL, B, BL, K, KL, M, ML)
-VALUES ('CA0721', 'PEK', 'SHA', 1213, '767', 2019, 7, 25, 10, 0, 2019, 7, 25, 12, 5, 0, 10, 0, 10, 0, 20, 0, 20, 0, 20, 0, 20, 0);
+VALUES ('CA0721', 'PEK', 'SHA', 'CA', 1213, '767', 2019, 7, 25, 10, 0, 2019, 7, 25, 12, 5, 0, 10, 0, 10, 0, 20, 0, 20, 0, 20, 0, 20, 0);
 
 
 UPDATE Flights SET F = 10, FL = 0 WHERE flight = "CA155";
