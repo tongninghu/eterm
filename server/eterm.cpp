@@ -145,7 +145,7 @@ void eterm::clientHandler() {
                string request(buff);
                bzero(buff, MAX);
                cout << "From client " << i << ": " << request << endl;
-
+               request.pop_back();
                string reply = requestHanlder(FDtoID[sd], request);
                strcpy(buff, reply.c_str());
                // and send that buffer to client
@@ -168,10 +168,9 @@ string eterm::requestHanlder(const string &id, string request) {
     string data;
     string reply;
 
-    if (end < request.size() - 1) {
+    if (end < request.size() - 1 || request == "@") {
         command = request.substr(0, end);
         data = request.substr(end + 1);
-        data.pop_back(); // erase the last charactor '\n'
         vector<string> temp;
         auto start = 0;
         auto end = data.find("/");
@@ -205,6 +204,16 @@ string eterm::requestHanlder(const string &id, string request) {
         else if (command == "SFC") {
             if(!sfcTrigger(id, temp, reply))
                 reply = "The request doesn't fit into command SFC, please enter again";
+        }
+        else if (request == "@") {
+            sealPNR(id, reply);
+        }
+        else if (command == "RT") {
+            RT(id, temp, reply);
+        }
+        else if (command == "ETDZ") {
+            if(!etdzTrigger(id, temp, reply))
+                reply = "The request doesn't fit into command ETDZ, please enter again";
         }
         else {
             reply = "There is no command: ";
@@ -291,8 +300,8 @@ bool eterm::avTrigger(const string &id, vector<string> & temp, string &reply) {
 
 string eterm::AV(const string &id, struct search_criteria &s) {
     if (clients.find(id) == clients.end()) {
-        PNR p;
-        p.insert_id(id);
+        PNR *p = new PNR();
+        p->insert_id(id);
         clients.insert({id, p});
     }
 
@@ -321,7 +330,7 @@ string eterm::AV(const string &id, struct search_criteria &s) {
         res = pstmt->executeQuery();
         int c = 0;
         while (res->next()) {
-            if (c++ == 0) clients[id].getSearch().clear();
+            if (c++ == 0) clients[id]->getSearch().clear();
             struct flights f;
             f.flight = res->getString("flight");
             f.dep = res->getString("dep");
@@ -336,37 +345,36 @@ string eterm::AV(const string &id, struct search_criteria &s) {
             f.B = to_string(res->getInt("B"));
             f.K = to_string(res->getInt("K"));
             f.M = to_string(res->getInt("M"));
-            clients[id].insert_search(f);
+            clients[id]->insert_search(f);
         }
         delete res;
         delete pstmt;
         delete con;
-
     } catch (sql::SQLException &e) {
         cout << "# ERR: SQLException in " << __FILE__;
         cout << "(" << __FUNCTION__ << ") on line "
            << __LINE__ << endl;
         cout << "# ERR: " << e.what();
         cout << " (MySQL error code: " << e.getErrorCode();
-        cout << ", SQLState: " << e.getSQLState() <<
-           " )" << endl;
+        cout << ", SQLState: " << e.getSQLState() << " )" << endl;
+        reply = "SQL ERROR";
+        return reply;
     }
-
-    for (int i = 0; i < clients[id].getSearch().size(); i++) {
-        reply += to_string(i + 1) + ". " + clients[id].getSearch()[i].toString() + "\n";
+    for (int i = 0; i < clients[id]->getSearch().size(); i++) {
+        reply += to_string(i + 1) + ". " + clients[id]->getSearch()[i].toString() + "\n";
     }
     reply.pop_back();
     return reply;
 }
 
 bool eterm::sdTrigger(const string &id, vector<string> & temp, string &reply) {
-    if (clients.find(id) == clients.end() || clients[id].getSearch().size() == 0) {
+    if (clients.find(id) == clients.end() || clients[id]->getSearch().size() == 0) {
         reply = "Please search first and then select";
         return true;
     }
 
     string n;
-    flights a = clients[id].getSearch()[stoi(temp[0]) - 1];
+    flights a = clients[id]->getSearch()[stoi(temp[0]) - 1];
 
     if (temp[1] == "F") {n = a.F;}
     else if (temp[1] == "C") {n = a.C;}
@@ -375,20 +383,22 @@ bool eterm::sdTrigger(const string &id, vector<string> & temp, string &reply) {
     else if (temp[1] == "K") {n = a.K;}
     else {n = a.M;}
 
-    if (stoi(temp[0]) <= clients[id].getSearch().size() && stoi(temp[2]) <= stoi(n)) {
+    if (stoi(temp[0]) <= clients[id]->getSearch().size() && stoi(temp[2]) <= stoi(n)) {
         a.appointed_cabin = temp[1];
         a.appointed_num = stoi(temp[2]);
-        time_t timeStamp = time(0);
 
-        clients[id].getSearchPrice().clear();
+
+        clients[id]->getSearchPrice().clear();
         for (int i = 0; i < currency.size(); i++) {
-            clients[id].insert_searchPrice(
+            clients[id]->insert_searchPrice(
                 priceCalculator(a.distance, a.appointed_cabin, currency[i])
             );
         }
 
-
-        reply = SD(id, a, timeStamp);
+        vector<string> r;
+        r.push_back("no pat yet");
+        clients[id]->insert_searchPrice(r);
+        reply = SD(id, a);
         return true;
     }
     else {
@@ -397,9 +407,10 @@ bool eterm::sdTrigger(const string &id, vector<string> & temp, string &reply) {
 }
 
 
-string eterm::SD(const string &id, flights& a, time_t ts) {
-    if (clients[id].getTicketing() != "") {
-        string r = "You may not select flight now";
+string eterm::SD(const string &id, flights& a) {
+    string r;
+    if (clients[id]->getTicketing() != "") {
+        r = "You may not select flight now";
         return r;
     }
 
@@ -407,10 +418,11 @@ string eterm::SD(const string &id, flights& a, time_t ts) {
         current_threads.insert(a);
     }
     else {
-        string r = "Server busy, please try later";
+        r = "Server busy, please try later";
         return r;
     }
 
+    time_t timeStamp = time(0);
     try {
         sql::Driver *driver;
         sql::Connection *con;
@@ -418,8 +430,6 @@ string eterm::SD(const string &id, flights& a, time_t ts) {
         sql::PreparedStatement *pstmt;
 
         int available;
-        int lock;
-        string k = a.appointed_cabin + "L";
 
         driver = get_driver_instance();
         con = driver->connect("tcp://127.0.0.1:3306", "root", "115823");
@@ -436,70 +446,38 @@ string eterm::SD(const string &id, flights& a, time_t ts) {
 
         while (res->next()) {
             available = res->getInt(a.appointed_cabin);
-            lock = res->getInt(k);
         }
-
-        if (available == 0) {
-            string r = "Already sold out, please choose another flight";
-            return r;
-        }
-
-        if (a.appointed_cabin == "F") {
-            pstmt = con->prepareStatement("UPDATE Flights SET FL = (?)\
-              WHERE (flight) = (?) AND (departure_month) = (?) AND \
-              (departure_date) = (?)");
-        }
-        else if (a.appointed_cabin == "C") {
-            pstmt = con->prepareStatement("UPDATE Flights SET CL = (?)\
-              WHERE (flight) = (?) AND (departure_month) = (?) AND \
-              (departure_date) = (?)");
-        }
-        else if (a.appointed_cabin == "Y") {
-            pstmt = con->prepareStatement("UPDATE Flights SET YL = (?)\
-              WHERE (flight) = (?) AND (departure_month) = (?) AND \
-              (departure_date) = (?)");
-        }
-        else if (a.appointed_cabin == "B") {
-            pstmt = con->prepareStatement("UPDATE Flights SET BL = (?)\
-              WHERE (flight) = (?) AND (departure_month) = (?) AND \
-              (departure_date) = (?)");
-        }
-        else if (a.appointed_cabin == "K") {
-            pstmt = con->prepareStatement("UPDATE Flights SET KL = (?)\
-              WHERE (flight) = (?) AND (departure_month) = (?) AND \
-              (departure_date) = (?)");
-        }
-        else {
-            pstmt = con->prepareStatement("UPDATE Flights SET ML = (?)\
-              WHERE (flight) = (?) AND (departure_month) = (?) AND \
-              (departure_date) = (?)");
-        }
-
-        pstmt->setInt(1, lock + 1);
-        pstmt->setString(2, a.flight);
-        pstmt->setInt(3, a.d_month);
-        pstmt->setInt(4, a.d_day);
-
-        res = pstmt->executeQuery();
 
         delete res;
         delete pstmt;
         delete con;
+        if (available == 0) {
+            string r = "Already sold out, please choose another flight";
+            return r;
+        }
         current_threads.erase(a);
-
+        clients[id]->insert_flight(a);
+        clients[id]->insert_ts(timeStamp);
+        if (lockTickets.find(a) != lockTickets.end()) {
+            lockTickets[a].insert(timeStamp);
+        }
+        else {
+            set<time_t> s;
+            s.insert(timeStamp);
+            lockTickets.insert({a, s});
+        }
+        return clients[id]->reply();
     } catch (sql::SQLException &e) {
         cout << "# ERR: SQLException in " << __FILE__;
         cout << "(" << __FUNCTION__ << ") on line "
            << __LINE__ << endl;
         cout << "# ERR: " << e.what();
         cout << " (MySQL error code: " << e.getErrorCode();
-        cout << ", SQLState: " << e.getSQLState() <<
-           " )" << endl;
+        cout << ", SQLState: " << e.getSQLState() << " )" << endl;
+        r = "SQL ERROR";
+        current_threads.erase(a);
+        return r;
     }
-
-    clients[id].insert_flight(a);
-    clients[id].insert_ts(ts);
-    return clients[id].reply();
 }
 
 bool eterm::nmTrigger(const string &id, vector<string> & temp, string& data, string &reply) {
@@ -509,19 +487,19 @@ bool eterm::nmTrigger(const string &id, vector<string> & temp, string& data, str
 
 string eterm::NM(const string &id, string &name) {
     if (clients.find(id) == clients.end()) {
-        PNR p;
-        p.insert_name(name);
-        p.insert_id(id);
+        PNR * p = new PNR();
+        p->insert_name(name);
+        p->insert_id(id);
         clients.insert({id, p});
     }
-    else if (clients[id].getTicketing() != "") {
+    else if (clients[id]->getTicketing() != "") {
         string r = "You may not change your name now";
         return r;
     }
     else {
-        clients[id].insert_name(name);
+        clients[id]->insert_name(name);
     }
-    return clients[id].reply();
+    return clients[id]->reply();
 }
 
 bool eterm::tkTrigger(const string &id, vector<string> & temp, string& data, string &reply) {
@@ -562,14 +540,14 @@ string eterm::TK(const string &id, string &ticketing, time_t endtime) {
         string r = "Please select a flight first";
         return r;
     }
-    clients[id].insert_ticketing(ticketing);
-    clients[id].insert_endtime(endtime);
+    clients[id]->insert_ticketing(ticketing);
+    clients[id]->insert_endtime(endtime);
     ticketingList.push(clients[id]);
-    return clients[id].reply();
+    return clients[id]->reply();
 }
 
 bool eterm::patTrigger(const string &id, vector<string> & temp, string &reply) {
-    if (clients.find(id) == clients.end() || clients[id].getFlight().flight == "") {
+    if (clients.find(id) == clients.end() || clients[id]->getFlight().flight == "") {
         reply = "Please search first and then check the price";
         return true;
     }
@@ -580,20 +558,25 @@ string eterm::PAT(const string &id) {
     int tcny_cn = 50;
     int tcny_yq = 150;
     string reply;
-    for (int i = 0; i < clients[id].getSearchPrice().size(); i++) {
+    clients[id]->remove_lastSearchPrice();
+    for (int i = 0; i < clients[id]->getSearchPrice().size(); i++) {
         if (i != 0) reply += "\n";
-        reply += to_string(i + 1) + ". " + clients[id].getFlight().appointed_cabin\
-            + " FARE:" + clients[id].getSearchPrice()[i][0]\
-            + clients[id].getSearchPrice()[i][1] + " TAX:"\
-            + clients[id].getSearchPrice()[i][2] + " YQ:"\
-            + clients[id].getSearchPrice()[i][3] + " TOTAL:"\
-            + clients[id].getSearchPrice()[i][4];
+        reply += to_string(i + 1) + ". " + clients[id]->getFlight().appointed_cabin\
+            + " FARE:" + clients[id]->getSearchPrice()[i][0]\
+            + clients[id]->getSearchPrice()[i][1] + " TAX:"\
+            + clients[id]->getSearchPrice()[i][2] + " YQ:"\
+            + clients[id]->getSearchPrice()[i][3] + " TOTAL:"\
+            + clients[id]->getSearchPrice()[i][4];
     }
     return reply;
 }
 
 bool eterm::sfcTrigger(const string &id, vector<string> & temp, string &reply) {
-    if (clients.find(id) == clients.end() || clients[id].getSearchPrice().size() == 0) {
+    int size = clients[id]->getSearchPrice().size();
+
+    if (clients.find(id) == clients.end() || size == 0 ||\
+        clients[id]->getSearchPrice()[size - 1][0] == "no pat yet") {
+
         reply = "Please search a flight first and then choose the price";
         return true;
     }
@@ -605,8 +588,167 @@ bool eterm::sfcTrigger(const string &id, vector<string> & temp, string &reply) {
 
 
 string eterm::SFC(const string &id, int num) {
-    clients[id].insert_price(num);
-    return clients[id].reply();
+    clients[id]->insert_price(num);
+    return clients[id]->reply();
+}
+
+void eterm::sealPNR(const string& id, string& reply) {
+    if (clients[id]->getNumber() == "") {
+        string number = random_string(6);
+        while (numberToPNR.find(number) != numberToPNR.end()) {
+            number = random_string(6);
+        }
+        clients[id]->insert_number(number);
+        numberToPNR.insert({number, clients[id]});
+    }
+    reply = clients[id]->getNumber();
+}
+
+void eterm::RT(const string& id, vector<string> & temp, string& reply) {
+    if (numberToPNR.find(temp[0]) == numberToPNR.end()) {
+        reply = "Wrong PNR number, please enter a valid number";
+    }
+    else {
+        reply = numberToPNR[temp[0]]->reply();
+    }
+}
+
+bool eterm::etdzTrigger(const string& id, vector<string> & temp, string& reply) {
+    if (clients.find(id) == clients.end()) {
+        reply = "No corresponding PNR";
+        return true;
+    }
+    else if (clients[id]->getNumber() == "") {
+        reply = "Please generate the PNR number first";
+        return true;
+    }
+
+    flights a = clients[id]->getFlight();
+    time_t ts = clients[id]->getTs();
+    reply = ETDZ(id, a, ts);
+    return true;
+}
+
+string eterm::ETDZ(const string & id, flights &a, time_t ts) {
+    string r;
+    if (current_threads.find(a) == current_threads.end()) {
+        current_threads.insert(a);
+    }
+    else {
+        r = "Server busy, please try later";
+        return r;
+    }
+
+    try {
+        sql::Driver *driver;
+        sql::Connection *con;
+        sql::ResultSet *res;
+        sql::PreparedStatement *pstmt;
+
+        int available;
+
+        driver = get_driver_instance();
+        con = driver->connect("tcp://127.0.0.1:3306", "root", "115823");
+        con->setSchema("eterm");
+
+        pstmt = con->prepareStatement("SELECT * FROM Flights WHERE (flight) =\
+            (?) AND (departure_month) = (?) AND (departure_date) = (?)");
+
+        pstmt->setString(1, a.flight);
+        pstmt->setInt(2, a.d_month);
+        pstmt->setInt(3, a.d_day);
+
+        res = pstmt->executeQuery();
+
+        while (res->next()) {
+            available = res->getInt(a.appointed_cabin);
+        }
+
+        if (available == 0) {
+            r = "Already SOLD OUT!\nPLEASE CHOOSE ANOTHER FLIGHT";
+        }
+        else {
+            int count = 1;
+            set <time_t>::iterator itr = lockTickets[a].begin();
+            while (*itr != ts) {
+                ++itr;
+                count++;
+            }
+            if (count <= available) {
+                if (a.appointed_cabin == "F") {
+                    pstmt = con->prepareStatement("UPDATE Flights SET F = (?)\
+                      WHERE (flight) = (?) AND (departure_month) = (?) AND \
+                      (departure_date) = (?)");
+                }
+                else if (a.appointed_cabin == "C") {
+                    pstmt = con->prepareStatement("UPDATE Flights SET C = (?)\
+                      WHERE (flight) = (?) AND (departure_month) = (?) AND \
+                      (departure_date) = (?)");
+                }
+                else if (a.appointed_cabin == "Y") {
+                    pstmt = con->prepareStatement("UPDATE Flights SET Y = (?)\
+                      WHERE (flight) = (?) AND (departure_month) = (?) AND \
+                      (departure_date) = (?)");
+                }
+                else if (a.appointed_cabin == "B") {
+                    pstmt = con->prepareStatement("UPDATE Flights SET B = (?)\
+                      WHERE (flight) = (?) AND (departure_month) = (?) AND \
+                      (departure_date) = (?)");
+                }
+                else if (a.appointed_cabin == "K") {
+                    pstmt = con->prepareStatement("UPDATE Flights SET K = (?)\
+                      WHERE (flight) = (?) AND (departure_month) = (?) AND \
+                      (departure_date) = (?)");
+                }
+                else {
+                    pstmt = con->prepareStatement("UPDATE Flights SET M = (?)\
+                      WHERE (flight) = (?) AND (departure_month) = (?) AND \
+                      (departure_date) = (?)");
+                }
+                pstmt->setInt(1, available - 1);
+                pstmt->setString(2, a.flight);
+                pstmt->setInt(3, a.d_month);
+                pstmt->setInt(4, a.d_day);
+                res = pstmt->executeQuery();
+
+                r = "ET PROCESSING...PLEASE WAIT!\nELECTRONIC TICKET ISSUED";
+
+                numberToPNR.erase(clients[id]->getNumber());
+                delete clients[id];
+                clients.erase(id);
+                lockTickets[a].erase(ts);
+                if (lockTickets[a].size() == 0) lockTickets.erase(a);
+            }
+            else {
+                r = "TICKET ISSUED FAILED!\nYOU ARE ON THE WAITING LIST";
+            }
+        }
+        delete res;
+        delete pstmt;
+        delete con;
+    } catch (sql::SQLException &e) {
+        cout << "# ERR: SQLException in " << __FILE__;
+        cout << "(" << __FUNCTION__ << ") on line "
+           << __LINE__ << endl;
+        cout << "# ERR: " << e.what();
+        cout << " (MySQL error code: " << e.getErrorCode();
+        cout << ", SQLState: " << e.getSQLState() << " )" << endl;
+    }
+    current_threads.erase(a);
+    return r;
+}
+
+string eterm::random_string(size_t length) {
+    auto randchar = []() -> char {
+        const char charset[] =
+        "0123456789"
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        const size_t max_index = (sizeof(charset) - 1);
+        return charset[ rand() % max_index ];
+    };
+    string str(length,0);
+    generate_n( str.begin(), length, randchar );
+    return str;
 }
 
 
@@ -636,8 +778,8 @@ vector<string> eterm::priceCalculator(int distance, string cabin, string currenc
 void eterm::PNR_maintain() {
   while (1) {
       time_t now = time(0);
-      while (!ticketingList.empty() && ticketingList.top().getEndtime() < now) {
-          string id = ticketingList.top().getId();
+      while (!ticketingList.empty() && ticketingList.top()->getEndtime() < now) {
+          string id = ticketingList.top()->getId();
           clients.erase(id);
           ticketingList.pop();
           now = time(0);

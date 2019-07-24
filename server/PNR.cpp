@@ -39,6 +39,10 @@ void PNR::insert_searchPrice(vector<string> p) {
     this->searchPrice.push_back(p);
 }
 
+void PNR::remove_lastSearchPrice() {
+    this->searchPrice.pop_back();
+}
+
 void PNR::insert_price(int num) {
     string currency = searchPrice[num - 1][0];
     string fcny = searchPrice[num - 1][1];
@@ -54,6 +58,11 @@ void PNR::insert_price(int num) {
        + to_string(f.appointed_num) + "/XCNY" + xcny + "/TCNY" + tcny_cn + "CN/TCNY"\
        + tcny_yq + "YQ/ACNY" + total;
 }
+
+void PNR::insert_number(string number) {
+    this->number = number;
+}
+
 
 
 vector<flights>& PNR::getSearch() {
@@ -82,6 +91,14 @@ string PNR::getTicketing() {
 
 vector<vector<string>>& PNR::getSearchPrice() {
     return searchPrice;
+}
+
+string PNR::getNumber() {
+    return number;
+}
+
+time_t PNR::getTs() {
+    return ts;
 }
 
 

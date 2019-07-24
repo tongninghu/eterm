@@ -16,6 +16,7 @@ class PNR {
       string fp = "FP/CASH ";
       string fc = "FC/";
       string fn = "FN/";
+      string number;
 
       string id;
       time_t ts;  // when is the ticket been locked by eterm
@@ -31,7 +32,9 @@ class PNR {
       void insert_endtime(time_t endtime);
       void insert_ticketing(const string & ticketing);
       void insert_searchPrice(vector<string> price);
+      void remove_lastSearchPrice();
       void insert_price(int num);
+      void insert_number(string number);
 
       vector<flights>& getSearch();
       flights getFlight();
@@ -40,6 +43,8 @@ class PNR {
       string getName();
       string getTicketing();
       vector<vector<string>>& getSearchPrice();
+      string getNumber();
+      time_t getTs();
 
       string reply();
 

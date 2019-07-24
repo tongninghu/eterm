@@ -5,6 +5,7 @@
 #include <vector>
 #include <unordered_map>
 #include <unordered_set>
+#include <set>
 #include <ctime>
 #include <queue>
 #include "flights.h"
@@ -27,8 +28,8 @@ class MyHashFunction {
 };
 
 struct compare {
-   bool operator()(const PNR& l, const PNR& r) {
-       return l.getEndtime() > r.getEndtime();
+   bool operator()(const PNR* l, const PNR* r) {
+       return l->getEndtime() > r->getEndtime();
    }
 };
 
@@ -43,9 +44,12 @@ class eterm {
         unordered_set<string> airlines {"CA", "MU", "CZ"};
         vector<string> currency {"CNY", "USD"};
 
-        priority_queue<PNR, vector<PNR>, compare> ticketingList;
-        unordered_map<string, PNR> clients;
+        priority_queue<PNR*, vector<PNR*>, compare> ticketingList;
+        unordered_map<string, PNR*> clients;
+        unordered_map<string, PNR*> numberToPNR;
         unordered_set<flights, MyHashFunction> current_threads;
+        unordered_map<flights, set<time_t>, MyHashFunction> lockTickets;
+
     public:
         eterm();
         void clientHandler();
@@ -56,17 +60,22 @@ class eterm {
         bool nmTrigger(const string &id, vector<string> & temp, string &data, string &reply); // NM HU/TONGNING
         bool tkTrigger(const string &id, vector<string> & temp, string &data, string &reply); // TK TL/1200/20JUL/P1
         bool patTrigger(const string &id, vector<string> & temp, string &reply); // PAT A
-        bool sfcTrigger(const string &id, vector<string> & temp, string &reply);
+        bool sfcTrigger(const string &id, vector<string> & temp, string &reply); // SFC 1
+        bool etdzTrigger(const string& id, vector<string> & temp, string& reply);
 
         string AV(const string &id, struct search_criteria &s);
-        string SD(const string &id, flights &a, time_t ts);
+        string SD(const string &id, flights &a);
         string NM(const string &id, string &name);
         string TK(const string &id, string &ticketing, time_t endtime);
         string PAT(const string &id);
         string SFC(const string &id, int num);
+        void sealPNR(const string& id, string& reply);
+        void RT(const string& id, vector<string> & temp, string& reply);
+        string ETDZ(const string & id, flights &a, time_t ts);
 
         vector<string> priceCalculator(int distance, string cabin, string currency);
         void PNR_maintain();  // delete the expired PNR from the queue
+        string random_string(size_t length);
 };
 
 #endif
