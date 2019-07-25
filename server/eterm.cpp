@@ -542,7 +542,7 @@ string eterm::TK(const string &id, string &ticketing, time_t endtime) {
     }
     clients[id]->insert_ticketing(ticketing);
     clients[id]->insert_endtime(endtime);
-    ticketingList.push(clients[id]);
+    ticketingList.insert(clients[id]);
     return clients[id]->reply();
 }
 
@@ -666,6 +666,9 @@ string eterm::ETDZ(const string & id, flights &a, time_t ts) {
 
         if (available == 0) {
             r = "Already SOLD OUT!\nPLEASE CHOOSE ANOTHER FLIGHT";
+            ticketingList.erase(clients[id]);
+            lockTickets[a].erase(ts);
+            if (lockTickets[a].size() == 0) lockTickets.erase(a);
         }
         else {
             int count = 1;
@@ -714,6 +717,7 @@ string eterm::ETDZ(const string & id, flights &a, time_t ts) {
                 r = "ET PROCESSING...PLEASE WAIT!\nELECTRONIC TICKET ISSUED";
 
                 numberToPNR.erase(clients[id]->getNumber());
+                ticketingList.erase(clients[id]);
                 delete clients[id];
                 clients.erase(id);
                 lockTickets[a].erase(ts);
@@ -776,13 +780,28 @@ vector<string> eterm::priceCalculator(int distance, string cabin, string currenc
 
 
 void eterm::PNR_maintain() {
+  int c = 1;
   while (1) {
-      time_t now = time(0);
-      while (!ticketingList.empty() && ticketingList.top()->getEndtime() < now) {
-          string id = ticketingList.top()->getId();
-          clients.erase(id);
-          ticketingList.pop();
-          now = time(0);
+      if (!ticketingList.empty()) {
+            set<PNR*, PtrComp>::iterator itr = ticketingList.begin();
+            time_t now = time(0);
+            while ((*itr)->getEndtime() < now) {
+                set<PNR*, PtrComp>::iterator temp= itr;
+                string id = (*itr)->getId();
+                time_t ts = (*itr)->getTs();
+                flights a = (*itr)->getFlight();
+                numberToPNR.erase(clients[id]->getNumber());
+                delete clients[id];
+                clients.erase(id);
+                lockTickets[a].erase(ts);
+                ticketingList.erase(itr);
+                if (lockTickets[a].size() == 0) lockTickets.erase(a);
+
+                if (ticketingList.empty()) break;
+                else itr = ticketingList.begin();
+
+                now = time(0);
+            }
       }
       this_thread::sleep_for(std::chrono::minutes(1));
   }

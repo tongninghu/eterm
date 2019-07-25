@@ -26,11 +26,17 @@ class MyHashFunction {
               ^ (hash<int>()(f.d_day)) ^ (hash<int>()(f.d_month));
         }
 };
-
+/*
 struct compare {
    bool operator()(const PNR* l, const PNR* r) {
        return l->getEndtime() > r->getEndtime();
    }
+};*/
+
+struct PtrComp {
+    bool operator()(const PNR* l, const PNR* r) const {
+        return l->getEndtime() < r->getEndtime();
+    }
 };
 
 class eterm {
@@ -44,7 +50,7 @@ class eterm {
         unordered_set<string> airlines {"CA", "MU", "CZ"};
         vector<string> currency {"CNY", "USD"};
 
-        priority_queue<PNR*, vector<PNR*>, compare> ticketingList;
+        set<PNR*, PtrComp> ticketingList;
         unordered_map<string, PNR*> clients;
         unordered_map<string, PNR*> numberToPNR;
         unordered_set<flights, MyHashFunction> current_threads;
@@ -55,13 +61,13 @@ class eterm {
         void clientHandler();
         string requestHanlder(const string &id, string request);
 
-        bool avTrigger(const string &id, vector<string> & temp, string &reply); // AV PEKSHA/25JUL
+        bool avTrigger(const string &id, vector<string> & temp, string &reply); // AV PEKSHA/31JUL
         bool sdTrigger(const string &id, vector<string> & temp, string &reply); // SD 1/F/1
         bool nmTrigger(const string &id, vector<string> & temp, string &data, string &reply); // NM HU/TONGNING
-        bool tkTrigger(const string &id, vector<string> & temp, string &data, string &reply); // TK TL/1200/20JUL/P1
+        bool tkTrigger(const string &id, vector<string> & temp, string &data, string &reply); // TK TL/1920/24JUL/P1
         bool patTrigger(const string &id, vector<string> & temp, string &reply); // PAT A
         bool sfcTrigger(const string &id, vector<string> & temp, string &reply); // SFC 1
-        bool etdzTrigger(const string& id, vector<string> & temp, string& reply);
+        bool etdzTrigger(const string& id, vector<string> & temp, string& reply); //ETDZ 4
 
         string AV(const string &id, struct search_criteria &s);
         string SD(const string &id, flights &a);
@@ -70,7 +76,7 @@ class eterm {
         string PAT(const string &id);
         string SFC(const string &id, int num);
         void sealPNR(const string& id, string& reply);
-        void RT(const string& id, vector<string> & temp, string& reply);
+        void RT(const string& id, vector<string> & temp, string& reply);  // RT VP52M8
         string ETDZ(const string & id, flights &a, time_t ts);
 
         vector<string> priceCalculator(int distance, string cabin, string currency);

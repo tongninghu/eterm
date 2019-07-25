@@ -27,12 +27,12 @@ CREATE TABLE Flights (
 INSERT INTO Flights (flight, dep, des, airline, distance, model, departure_year, departure_month, departure_date,
     departure_hour, departure_min, arrival_year, arrival_month, arrival_date, arrival_hour,
     arrival_min,stops, F, C, Y, B, K, M)
-VALUES ('CA155', 'PEK', 'SHA', 'CA', 1213, '767', 2019, 7, 25, 7, 45, 2019, 7, 25, 9, 50, 0, 1, 10, 20, 20, 20, 20);
+VALUES ('CA155', 'PEK', 'SHA', 'CA', 1213, '767', 2019, 7, 31, 7, 45, 2019, 7, 31, 9, 50, 0, 1, 10, 20, 20, 20, 20);
 
 INSERT INTO Flights (flight, dep, des, airline, distance, model, departure_year, departure_month, departure_date,
     departure_hour, departure_min, arrival_year, arrival_month, arrival_date, arrival_hour,
     arrival_min,stops, F, C, Y, B, K, M)
-VALUES ('CA0721', 'PEK', 'SHA', 'CA', 1213, '767', 2019, 7, 25, 10, 0, 2019, 7, 25, 12, 5, 0, 1, 10, 20, 20, 20, 20);
+VALUES ('CA0721', 'PEK', 'SHA', 'CA', 1213, '767', 2019, 7, 31, 10, 0, 2019, 7, 31, 12, 5, 0, 1, 10, 20, 20, 20, 20);
 
 
 UPDATE Flights SET F = 1 WHERE flight = "CA155";
