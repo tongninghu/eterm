@@ -3,6 +3,7 @@
 #include <iostream>
 #include <unistd.h>
 #include <netdb.h>
+#include <string.h>
 #include <netinet/in.h>
 #include <stdlib.h>
 #include <arpa/inet.h>
@@ -17,6 +18,7 @@ using namespace std;
 
 void func(int sockfd) {
 		char buff[MAX];
+		string reply;
 		int n;
 		for (;;) {
 				bzero(buff, sizeof(buff));
@@ -25,10 +27,13 @@ void func(int sockfd) {
 				while ((buff[n++] = getchar()) != '\n')
 					;
 				write(sockfd, buff, sizeof(buff));
+
 				bzero(buff, sizeof(buff));
+
 				read(sockfd, buff, sizeof(buff));
 				printf("\nFrom Server:\n%s\n", buff);
-				if ((strncmp(buff, "exit", 4)) == 0) {
+
+				if ((strncmp(buff, "EXIT", 4)) == 0) {
 						printf("Client Exit...\n");
 						break;
 				}
@@ -50,7 +55,7 @@ int main() {
 
 		// assign IP, PORT
 		servaddr.sin_family = AF_INET;
-		servaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+		servaddr.sin_addr.s_addr = inet_addr("168.150.9.183");
 		servaddr.sin_port = htons(PORT);
 
 		// connect the client socket to server socket

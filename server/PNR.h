@@ -45,6 +45,7 @@ class PNR {
       vector<vector<string>>& getSearchPrice();
       string getNumber();
       time_t getTs();
+      string getFP();
 
       string reply();
 

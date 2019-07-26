@@ -101,6 +101,10 @@ time_t PNR::getTs() {
     return ts;
 }
 
+string PNR::getFP() {
+    return fp;
+}
+
 
 
 string PNR::reply() {

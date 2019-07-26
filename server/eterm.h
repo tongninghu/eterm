@@ -26,12 +26,6 @@ class MyHashFunction {
               ^ (hash<int>()(f.d_day)) ^ (hash<int>()(f.d_month));
         }
 };
-/*
-struct compare {
-   bool operator()(const PNR* l, const PNR* r) {
-       return l->getEndtime() > r->getEndtime();
-   }
-};*/
 
 struct PtrComp {
     bool operator()(const PNR* l, const PNR* r) const {
@@ -64,7 +58,7 @@ class eterm {
         bool avTrigger(const string &id, vector<string> & temp, string &reply); // AV PEKSHA/31JUL
         bool sdTrigger(const string &id, vector<string> & temp, string &reply); // SD 1/F/1
         bool nmTrigger(const string &id, vector<string> & temp, string &data, string &reply); // NM HU/TONGNING
-        bool tkTrigger(const string &id, vector<string> & temp, string &data, string &reply); // TK TL/1920/24JUL/P1
+        bool tkTrigger(const string &id, vector<string> & temp, string &data, string &reply); // TK TL/1830/25JUL/P1
         bool patTrigger(const string &id, vector<string> & temp, string &reply); // PAT A
         bool sfcTrigger(const string &id, vector<string> & temp, string &reply); // SFC 1
         bool etdzTrigger(const string& id, vector<string> & temp, string& reply); //ETDZ 4
@@ -75,7 +69,7 @@ class eterm {
         string TK(const string &id, string &ticketing, time_t endtime);
         string PAT(const string &id);
         string SFC(const string &id, int num);
-        void sealPNR(const string& id, string& reply);
+        void sealPNR(const string& id, string& reply);  // @
         void RT(const string& id, vector<string> & temp, string& reply);  // RT VP52M8
         string ETDZ(const string & id, flights &a, time_t ts);
 

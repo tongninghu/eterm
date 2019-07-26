@@ -97,16 +97,13 @@ void eterm::clientHandler() {
            if(sd > max_sd) max_sd = sd;
        }
 
-       //wait for an activity on one of the sockets , timeout is NULL ,
-       //so wait indefinitely
+       //wait for an activity on one of the sockets, timeout is NULL, so wait indefinitely
        activity = select(max_sd + 1 , &readfds , NULL , NULL , NULL);
-
        if ((activity < 0) && (errno!=EINTR)) {
            printf("select error\n");
        }
 
-       //If something happened on the master socket ,
-       //then its an incoming connection
+       //If something happened on the master socket, then its an incoming connection
        if (FD_ISSET(master_socket, &readfds)) {
            if ((new_socket = accept(master_socket, (SA*)&address, \
               (socklen_t*)&addrlen))<0) {
@@ -146,15 +143,16 @@ void eterm::clientHandler() {
                bzero(buff, MAX);
                cout << "From client " << i << ": " << request << endl;
                request.pop_back();
+
                string reply = requestHanlder(FDtoID[sd], request);
                strcpy(buff, reply.c_str());
                // and send that buffer to client
                write(sd, buff, sizeof(buff));
 
                // if msg contains "Exit" then server exit and chat ended.
-               if (strncmp("exit", buff, 4) == 0) {
-                   printf("Server Exit...\n");
-                   break;
+               if (reply == "EXIT") {
+                  client_socket[i] = 0;
+                  printf("Removing socket %d\n" , i);
                }
            }
        }
@@ -163,6 +161,21 @@ void eterm::clientHandler() {
 
 
 string eterm::requestHanlder(const string &id, string request) {
+    if (request == "EXIT") {
+        if (clients.find(id) != clients.end()) {
+            time_t ts = clients[id]->getTs();
+            flights a = clients[id]->getFlight();
+            numberToPNR.erase(clients[id]->getNumber());
+            delete clients[id];
+            clients.erase(id);
+            ticketingList.erase(clients[id]);
+            if (lockTickets.find(a) != lockTickets.end()) {
+                lockTickets[a].erase(ts);
+                if (lockTickets[a].size() == 0) lockTickets.erase(a);
+            }
+        }
+        return "EXIT";
+    }
     int end = request.find(' ');
     string command;
     string data;
@@ -572,7 +585,9 @@ string eterm::PAT(const string &id) {
 }
 
 bool eterm::sfcTrigger(const string &id, vector<string> & temp, string &reply) {
-    int size = clients[id]->getSearchPrice().size();
+    int size;
+    if (clients.find(id) != clients.end())
+        size = clients[id]->getSearchPrice().size();
 
     if (clients.find(id) == clients.end() || size == 0 ||\
         clients[id]->getSearchPrice()[size - 1][0] == "no pat yet") {
@@ -620,6 +635,14 @@ bool eterm::etdzTrigger(const string& id, vector<string> & temp, string& reply) 
     }
     else if (clients[id]->getNumber() == "") {
         reply = "Please generate the PNR number first";
+        return true;
+    }
+    else if (clients[id]->getFP() == "FP/CASH ") {
+        reply = "Please pay the ticket first";
+        return true;
+    }
+    else if (clients[id]->getTicketing() == "") {
+        reply = "Please ticketing first";
         return true;
     }
 
@@ -783,25 +806,25 @@ void eterm::PNR_maintain() {
   int c = 1;
   while (1) {
       if (!ticketingList.empty()) {
-            set<PNR*, PtrComp>::iterator itr = ticketingList.begin();
-            time_t now = time(0);
-            while ((*itr)->getEndtime() < now) {
-                set<PNR*, PtrComp>::iterator temp= itr;
-                string id = (*itr)->getId();
-                time_t ts = (*itr)->getTs();
-                flights a = (*itr)->getFlight();
-                numberToPNR.erase(clients[id]->getNumber());
-                delete clients[id];
-                clients.erase(id);
-                lockTickets[a].erase(ts);
-                ticketingList.erase(itr);
-                if (lockTickets[a].size() == 0) lockTickets.erase(a);
+          set<PNR*, PtrComp>::iterator itr = ticketingList.begin();
+          time_t now = time(0);
+          while ((*itr)->getEndtime() < now) {
+              set<PNR*, PtrComp>::iterator temp= itr;
+              string id = (*itr)->getId();
+              time_t ts = (*itr)->getTs();
+              flights a = (*itr)->getFlight();
+              numberToPNR.erase(clients[id]->getNumber());
+              delete clients[id];
+              clients.erase(id);
+              lockTickets[a].erase(ts);
+              ticketingList.erase(itr);
+              if (lockTickets[a].size() == 0) lockTickets.erase(a);
 
-                if (ticketingList.empty()) break;
-                else itr = ticketingList.begin();
+              if (ticketingList.empty()) break;
+              else itr = ticketingList.begin();
 
-                now = time(0);
-            }
+              now = time(0);
+          }
       }
       this_thread::sleep_for(std::chrono::minutes(1));
   }
